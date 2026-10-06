@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Pair Laptop — Laptop Guardian</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="auth-page">
+  <div class="auth-bg">
+    <div class="auth-orb orb-1"></div>
+    <div class="auth-orb orb-2"></div>
+  </div>
+
+  <div class="auth-container">
+    <div class="auth-card" style="max-width:480px">
+      <div class="auth-logo">
+        <span class="logo-icon">🔗</span>
+        <h1 class="logo-title">Pair Your Laptop</h1>
+        <p class="logo-sub">Generate a code, then run it on your laptop</p>
+      </div>
+
+      <div id="pair-step1">
+        <p class="pair-instructions">
+          Click <strong>Generate Code</strong> below, then open a terminal on
+          your laptop and run:
+        </p>
+        <code class="pair-cmd">python register_device.py</code>
+        <p class="pair-instructions" style="margin-top:12px">
+          Enter the pairing code when prompted.
+        </p>
+        <button class="btn btn-primary btn-full" id="gen-btn" onclick="generateCode()">
+          Generate Pairing Code
+        </button>
+      </div>
+
+      <div id="pair-step2" class="hidden">
+        <div class="pairing-code-display">
+          <p class="pair-code-label">Your Pairing Code</p>
+          <div class="pair-code" id="pair-code-val">— — —</div>
+          <div class="pair-timer" id="pair-timer">Valid for 15:00</div>
+        </div>
+        <p class="pair-instructions" style="margin-top:18px">
+          On your laptop terminal, enter this code when prompted by
+          <code style="font-size:0.85rem">python register_device.py</code>.
+        </p>
+        <button class="btn btn-outline btn-full" style="margin-top:12px" onclick="generateCode()">
+          🔄 Generate New Code
+        </button>
+        <a href="/" class="btn btn-ghost btn-full" style="margin-top:8px">← Back to Dashboard</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let timerInterval = null;
+
+    async function generateCode() {
+      document.getElementById('gen-btn') && (document.getElementById('gen-btn').disabled = true);
+      try {
+        const resp = await fetch('/api/devices/pairing-code', {
+          method: 'POST',
+          credentials: 'include'
+        });
+        if (resp.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
+        const data = await resp.json();
+        if (!data.success) {
+          alert(data.error || 'Failed to generate code.');
+          return;
+        }
+        document.getElementById('pair-step1').classList.add('hidden');
+        document.getElementById('pair-step2').classList.remove('hidden');
+        document.getElementById('pair-code-val').textContent = data.pairing_code;
+        startTimer(data.expires_in_minutes * 60);
+      } catch(e) {
+        alert('Cannot connect to server.');
+      }
+    }
+
+    function startTimer(seconds) {
+      clearInterval(timerInterval);
+      let remaining = seconds;
+      const el = document.getElementById('pair-timer');
+      timerInterval = setInterval(() => {
+        remaining--;
+        if (remaining <= 0) {
+          clearInterval(timerInterval);
+          el.textContent = 'Code expired. Generate a new one.';
+          el.style.color = 'var(--status-offline)';
+          return;
+        }
+        const m = Math.floor(remaining / 60);
+        const s = remaining % 60;
+        el.textContent = `Valid for ${m}:${String(s).padStart(2,'0')}`;
+      }, 1000);
+    }
+  </script>
+</body>
+</html>

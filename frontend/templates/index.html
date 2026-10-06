@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Laptop Guardian</title>
+  <meta name="description" content="Monitor and control your laptop remotely from your phone.">
+  <meta name="theme-color" content="#0d0f14">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="dashboard-page">
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="topbar-icon">💻</span>
+      <span class="topbar-title">LAPTOP GUARDIAN</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn notif-btn" id="notif-btn" title="Notifications" onclick="toggleNotifPanel()">
+        🔔<span class="notif-badge hidden" id="notif-badge">0</span>
+      </button>
+      <button class="icon-btn" title="Logout" onclick="logout()">⏏</button>
+    </div>
+  </header>
+
+  <!-- Notification panel -->
+  <div class="notif-panel hidden" id="notif-panel">
+    <div class="notif-panel-header">
+      <span>Notifications</span>
+      <button class="btn-text-sm" onclick="markAllRead()">Mark all read</button>
+    </div>
+    <div id="notif-list" class="notif-list">
+      <p class="empty-msg">No notifications yet.</p>
+    </div>
+  </div>
+  <div class="notif-overlay hidden" id="notif-overlay" onclick="toggleNotifPanel()"></div>
+
+  <!-- Main content -->
+  <main class="dashboard-main" id="main-content">
+
+    <!-- Loading state -->
+    <div id="loading-screen" class="loading-screen">
+      <div class="spinner"></div>
+      <p>Loading…</p>
+    </div>
+
+    <!-- No device state -->
+    <div id="no-device" class="no-device hidden">
+      <div class="no-device-icon">💻</div>
+      <h2>No Laptop Paired</h2>
+      <p>Pair your laptop to start monitoring it remotely.</p>
+      <a href="/pair" class="btn btn-primary">Pair Laptop</a>
+    </div>
+
+    <!-- Device dashboard -->
+    <div id="device-dashboard" class="hidden">
+
+      <!-- Status Card -->
+      <div class="card status-card">
+        <div class="device-header">
+          <div class="device-info">
+            <h2 class="device-name" id="device-name">Laptop</h2>
+            <p class="device-os" id="device-os">Windows</p>
+          </div>
+          <div class="status-pill" id="status-pill">
+            <span class="status-dot" id="status-dot"></span>
+            <span class="status-label" id="status-label">—</span>
+          </div>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-item">
+            <div class="stat-icon">🕐</div>
+            <div class="stat-info">
+              <p class="stat-label">Last Seen</p>
+              <p class="stat-value" id="last-seen">—</p>
+            </div>
+          </div>
+          <div class="stat-item" id="battery-stat" style="display:none">
+            <div class="stat-icon" id="battery-icon">🔋</div>
+            <div class="stat-info">
+              <p class="stat-label">Battery</p>
+              <p class="stat-value" id="battery-val">—</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Location -->
+        <div class="location-section" id="location-section">
+          <div class="location-header">
+            <span class="location-pin">📍</span>
+            <div>
+              <p class="location-city" id="location-city">Location unavailable</p>
+              <p class="location-meta" id="location-meta"></p>
+            </div>
+          </div>
+          <button class="btn btn-outline btn-sm" id="map-btn" onclick="openMap()" style="display:none">
+            🗺 Open Map
+          </button>
+        </div>
+      </div>
+
+      <!-- Remote Control -->
+      <div class="card control-card">
+        <h3 class="card-title">Remote Control</h3>
+        <div class="control-grid">
+          <button class="control-btn shutdown-btn" id="btn-shutdown" onclick="sendCommand('SHUTDOWN')">
+            <span class="ctrl-icon">🔴</span>
+            <span class="ctrl-label">Shutdown</span>
+          </button>
+          <button class="control-btn restart-btn" id="btn-restart" onclick="sendCommand('RESTART')">
+            <span class="ctrl-icon">🔄</span>
+            <span class="ctrl-label">Restart</span>
+          </button>
+          <button class="control-btn lock-btn" id="btn-lock" onclick="sendCommand('LOCK')">
+            <span class="ctrl-icon">🔒</span>
+            <span class="ctrl-label">Lock</span>
+          </button>
+        </div>
+        <p class="ctrl-note" id="ctrl-note"></p>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="card activity-card">
+        <div class="card-title-row">
+          <h3 class="card-title">Recent Activity</h3>
+          <a href="/activity" class="btn-text-sm">View all →</a>
+        </div>
+        <div id="activity-list" class="activity-list">
+          <p class="empty-msg">No activity yet.</p>
+        </div>
+      </div>
+
+      <!-- Add Laptop -->
+      <div class="pair-hint">
+        <a href="/pair" class="btn btn-ghost btn-sm">+ Pair Another Laptop</a>
+      </div>
+
+    </div><!-- /device-dashboard -->
+  </main>
+
+  <!-- Confirmation Dialog -->
+  <div class="modal-overlay hidden" id="cmd-modal">
+    <div class="modal-card">
+      <div class="modal-icon" id="modal-icon">⚠️</div>
+      <h3 class="modal-title" id="modal-title">Confirm Action</h3>
+      <p class="modal-msg" id="modal-msg">Are you sure?</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-danger" id="modal-confirm-btn" onclick="confirmCommand()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast hidden" id="toast"></div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Activity History — Laptop Guardian</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="dashboard-page">
+
+  <header class="topbar">
+    <div class="topbar-brand">
+      <a href="/" class="back-btn">←</a>
+      <span class="topbar-title">Activity History</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn" title="Logout" onclick="logout()">⏏</button>
+    </div>
+  </header>
+
+  <main class="dashboard-main" style="padding-top:72px">
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <button class="filter-btn active" data-period="today" onclick="setFilter(this,'today')">Today</button>
+      <button class="filter-btn" data-period="yesterday" onclick="setFilter(this,'yesterday')">Yesterday</button>
+      <button class="filter-btn" data-period="7d" onclick="setFilter(this,'7d')">7 Days</button>
+      <button class="filter-btn" data-period="30d" onclick="setFilter(this,'30d')">30 Days</button>
+      <button class="filter-btn" data-period="all" onclick="setFilter(this,'all')">All</button>
+    </div>
+
+    <div id="loading-act" style="text-align:center;padding:32px;color:var(--text-muted)">
+      <div class="spinner" style="margin:0 auto 12px"></div>Loading…
+    </div>
+
+    <div id="activity-container" class="activity-full hidden"></div>
+    <div id="no-activity" class="empty-msg hidden" style="text-align:center;padding:48px">No activity for this period.</div>
+
+  </main>
+
+  <script>
+    const EVENT_META = {
+      STARTUP:          {icon:'🟢', label:'Laptop Online',   color:'online'},
+      ONLINE:           {icon:'🟢', label:'Online',          color:'online'},
+      SHUTDOWN:         {icon:'🔴', label:'Laptop Shutdown', color:'shutdown'},
+      RESTART:          {icon:'🔄', label:'Restarting',      color:'warning'},
+      LOCK:             {icon:'🔒', label:'Laptop Locked',   color:'neutral'},
+      UNLOCK:           {icon:'🔓', label:'Unlocked',        color:'neutral'},
+      SLEEP:            {icon:'😴', label:'Sleep',           color:'neutral'},
+      WAKE:             {icon:'🌅', label:'Woke Up',         color:'online'},
+      OFFLINE:          {icon:'🟠', label:'Offline',         color:'offline'},
+      UNEXPECTED_OFFLINE:{icon:'⚠️',label:'Unexpected Offline',color:'warning'},
+      PHOTO:            {icon:'📷', label:'Webcam Photo',     color:'online'},
+      SCREENSHOT:       {icon:'📸', label:'Desktop Screenshot', color:'online'},
+      ALARM:            {icon:'🔔', label:'Audible Alarm',    color:'warning'},
+      LOCATION:         {icon:'📍', label:'Location Refresh', color:'online'},
+    };
+
+    let currentDeviceId = null;
+    let currentPeriod   = 'today';
+
+    function logout() {
+      fetch('/api/auth/logout', {method:'POST', credentials:'include'})
+        .then(() => window.location.href = '/login');
+    }
+
+    function setFilter(btn, period) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentPeriod = period;
+      if (currentDeviceId) loadActivity(currentDeviceId, period);
+    }
+
+    function formatTs(isoStr) {
+      if (!isoStr) return '—';
+      const d = new Date(isoStr);
+      return d.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})
+        + ' — '
+        + d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true}).toUpperCase();
+    }
+
+    async function loadActivity(deviceId, period) {
+      document.getElementById('loading-act').classList.remove('hidden');
+      document.getElementById('activity-container').classList.add('hidden');
+      document.getElementById('no-activity').classList.add('hidden');
+
+      try {
+        const r = await fetch(`/api/activity/${deviceId}?period=${period}&limit=200`, {credentials:'include'});
+        if (r.status === 401) { window.location.href='/login'; return; }
+        const d = await r.json();
+        const acts = d.activities || [];
+
+        document.getElementById('loading-act').classList.add('hidden');
+        if (acts.length === 0) {
+          document.getElementById('no-activity').classList.remove('hidden');
+          return;
+        }
+
+        const container = document.getElementById('activity-container');
+        container.innerHTML = '';
+
+        // Group by date
+        const byDate = {};
+        acts.forEach(a => {
+          const dateKey = a.created_at ? a.created_at.substring(0,10) : 'Unknown';
+          if (!byDate[dateKey]) byDate[dateKey] = [];
+          byDate[dateKey].push(a);
+        });
+
+        Object.keys(byDate).sort().reverse().forEach(dateKey => {
+          const group = document.createElement('div');
+          group.className = 'activity-group';
+
+          const dateLabel = document.createElement('div');
+          dateLabel.className = 'activity-date-label';
+          dateLabel.textContent = new Date(dateKey + 'T00:00:00').toLocaleDateString('en-IN', {
+            weekday:'long', day:'2-digit', month:'long', year:'numeric'
+          });
+          group.appendChild(dateLabel);
+
+          byDate[dateKey].forEach(act => {
+            const meta = EVENT_META[act.event_type] || {icon:'📋', label:act.event_type, color:'neutral'};
+            const item = document.createElement('div');
+            item.className = `activity-item-full color-${meta.color}`;
+
+            let locationHtml = '';
+            if (act.location_label) {
+              const isApprox = act.location_label.includes('Approximate');
+              locationHtml = `<p class="act-location">📍 ${act.location_label}</p>`;
+            } else if (act.latitude && act.longitude) {
+              locationHtml = `<p class="act-location">📍 ${parseFloat(act.latitude).toFixed(4)}, ${parseFloat(act.longitude).toFixed(4)}</p>`;
+            }
+
+            let detailsHtml = '';
+            if (act.event_details) {
+              if (act.event_details.includes('/static/captures/')) {
+                const match = act.event_details.match(/(\/static\/captures\/[^\s'"]+)/);
+                const imgUrl = match ? match[1] : '';
+                detailsHtml = `<p class="act-detail">${act.event_details}</p>
+                <div style="margin-top:8px"><a href="${imgUrl}" target="_blank" title="Click to view full image"><img src="${imgUrl}" style="max-width:280px;max-height:160px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);box-shadow:0 4px 12px rgba(0,0,0,0.3);object-fit:cover" alt="Capture" /></a></div>`;
+              } else {
+                detailsHtml = `<p class="act-detail">${act.event_details}</p>`;
+              }
+            }
+
+            item.innerHTML = `
+              <div class="act-icon-col">${meta.icon}</div>
+              <div class="act-body">
+                <p class="act-label-full">${meta.label}</p>
+                <p class="act-time-full">${formatTs(act.created_at)}</p>
+                ${act.laptop_time ? `<p class="act-laptop-time">Laptop time: ${formatTs(act.laptop_time)}</p>` : ''}
+                ${locationHtml}
+                ${detailsHtml}
+              </div>
+            `;
+            group.appendChild(item);
+          });
+
+          container.appendChild(group);
+        });
+
+        container.classList.remove('hidden');
+      } catch(e) {
+        document.getElementById('loading-act').classList.add('hidden');
+        document.getElementById('no-activity').textContent = 'Failed to load activity.';
+        document.getElementById('no-activity').classList.remove('hidden');
+      }
+    }
+
+    async function init() {
+      try {
+        const r = await fetch('/api/auth/me', {credentials:'include'});
+        const d = await r.json();
+        if (!d.success) { window.location.href='/login'; return; }
+
+        const dr = await fetch('/api/devices', {credentials:'include'});
+        const dd = await dr.json();
+        const devices = dd.devices || [];
+        if (devices.length === 0) { window.location.href='/'; return; }
+
+        currentDeviceId = devices[0].device_id;
+        loadActivity(currentDeviceId, currentPeriod);
+      } catch(e) {
+        window.location.href='/login';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

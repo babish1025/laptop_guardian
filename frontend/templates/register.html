@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Create Account — Laptop Guardian</title>
+  <meta name="description" content="Create your Laptop Guardian account to start monitoring your laptop.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="auth-page">
+  <div class="auth-bg">
+    <div class="auth-orb orb-1"></div>
+    <div class="auth-orb orb-2"></div>
+  </div>
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <span class="logo-icon">💻</span>
+        <h1 class="logo-title">Laptop Guardian</h1>
+        <p class="logo-sub">Create your account</p>
+      </div>
+
+      <form id="register-form" class="auth-form">
+        <div class="form-group">
+          <label for="name">Full Name</label>
+          <input type="text" id="name" placeholder="Your name" required autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="your@email.com" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <div class="input-with-icon">
+            <input type="password" id="password" placeholder="Min. 8 characters" required autocomplete="new-password">
+            <button type="button" class="toggle-pw" onclick="togglePassword('password')">👁</button>
+          </div>
+        </div>
+
+        <div id="reg-error" class="form-error hidden"></div>
+        <div id="reg-success" class="form-success hidden"></div>
+
+        <button type="submit" class="btn btn-primary btn-full" id="reg-btn">
+          <span class="btn-text">Create Account</span>
+        </button>
+      </form>
+
+      <p class="auth-switch">
+        Already have an account?
+        <a href="/login">Sign in</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    function togglePassword(id) {
+      const inp = document.getElementById(id);
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+    }
+
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('reg-btn');
+      const err = document.getElementById('reg-error');
+      const succ = document.getElementById('reg-success');
+      btn.disabled = true;
+      err.classList.add('hidden');
+      succ.classList.add('hidden');
+
+      try {
+        const resp = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          credentials: 'include',
+          body: JSON.stringify({
+            name: document.getElementById('name').value.trim(),
+            email: document.getElementById('email').value.trim(),
+            password: document.getElementById('password').value
+          })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          succ.textContent = 'Account created! Redirecting…';
+          succ.classList.remove('hidden');
+          setTimeout(() => window.location.href = '/', 1200);
+        } else {
+          err.textContent = data.error || 'Registration failed.';
+          err.classList.remove('hidden');
+        }
+      } catch (ex) {
+        err.textContent = 'Cannot connect to server.';
+        err.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

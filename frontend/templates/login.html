@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Login — Laptop Guardian</title>
+  <meta name="description" content="Sign in to Laptop Guardian to monitor and control your laptop remotely.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="auth-page">
+  <div class="auth-bg">
+    <div class="auth-orb orb-1"></div>
+    <div class="auth-orb orb-2"></div>
+  </div>
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <span class="logo-icon">💻</span>
+        <h1 class="logo-title">Laptop Guardian</h1>
+        <p class="logo-sub">Secure remote monitoring</p>
+      </div>
+
+      <form id="login-form" class="auth-form">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" placeholder="your@email.com" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <div class="input-with-icon">
+            <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+            <button type="button" class="toggle-pw" onclick="togglePassword('password')">👁</button>
+          </div>
+        </div>
+
+        <div id="login-error" class="form-error hidden"></div>
+
+        <button type="submit" class="btn btn-primary btn-full" id="login-btn">
+          <span class="btn-text">Sign In</span>
+          <span class="btn-loader hidden">⟳</span>
+        </button>
+      </form>
+
+      <p class="auth-switch">
+        Don't have an account?
+        <a href="/register">Create account</a>
+      </p>
+
+      <!-- LAN access hint -->
+      <div id="server-hint" class="server-hint" style="display:none">
+        <span class="server-hint-icon">📡</span>
+        <span id="server-hint-url">Loading server URL...</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function togglePassword(id) {
+      const inp = document.getElementById(id);
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      const err = document.getElementById('login-error');
+      btn.disabled = true;
+      btn.querySelector('.btn-text').textContent = 'Signing in…';
+      err.classList.add('hidden');
+
+      try {
+        const resp = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          credentials: 'include',
+          body: JSON.stringify({
+            email: document.getElementById('email').value.trim(),
+            password: document.getElementById('password').value
+          })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          window.location.href = '/';
+        } else {
+          err.textContent = data.error || 'Login failed.';
+          err.classList.remove('hidden');
+        }
+      } catch (ex) {
+        err.textContent = 'Cannot connect to server. Try again.';
+        err.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.querySelector('.btn-text').textContent = 'Sign In';
+      }
+    });
+
+    // Auto-redirect if already logged in
+    (async () => {
+      try {
+        const r = await fetch('/api/auth/me', {credentials:'include'});
+        const d = await r.json();
+        if (d.success) window.location.href = '/';
+      } catch {}
+    })();
+
+    // Show LAN URL hint so user knows how to connect from mobile
+    (async () => {
+      const hint = document.getElementById('server-hint');
+      const hintUrl = document.getElementById('server-hint-url');
+      if (!hint || !hintUrl) return;
+
+      try {
+        const r = await fetch('/api/network-info');
+        const d = await r.json();
+        if (d.success && d.urls && d.urls.length > 0) {
+          const lanUrl = d.urls[0];  // First LAN IP
+          hintUrl.innerHTML = `📱 <strong>Open on Mobile:</strong>&nbsp;<code style="word-break:break-all;background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:4px">${lanUrl}/login</code>`;
+          hint.style.display = 'flex';
+        } else {
+          // Fallback: show current origin (useful if already on LAN IP)
+          const url = window.location.origin;
+          hintUrl.innerHTML = `📱 <strong>Mobile URL:</strong>&nbsp;<code style="word-break:break-all">${url}/login</code>`;
+          hint.style.display = 'flex';
+        }
+      } catch {
+        // Silently ignore if server unreachable
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+# Laptop Guardian — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# ── Web Framework ─────────────────────────────────────────────
+flask>=2.3.0
+flask-cors>=4.0.0
+
+# ── Database ──────────────────────────────────────────────────
+mysql-connector-python>=8.0.32
+
+# ── Authentication ────────────────────────────────────────────
+bcrypt>=4.0.0
+
+# ── HTTP Client ───────────────────────────────────────────────
+requests>=2.28.0
+
+# ── System Info (battery, CPU) ────────────────────────────────
+psutil>=5.9.0
+
+# ── Environment Variables ─────────────────────────────────────
+python-dotenv>=1.0.0
+
+# ── Windows Location API (Windows only — agent uses this) ─────
+winsdk>=1.0.0b10
+
+# ── Production WSGI Server (cloud deployment) ─────────────────
+gunicorn>=21.2.0
+
+# ── Firebase Cloud Messaging (Push Notifications) ────────────
+firebase-admin>=6.2.0
